@@ -1,0 +1,71 @@
+Take a function:
+
+int x(int y) {
+    int a = 1; //Dead
+    int b; // Dead
+    int c;
+
+    b = a + y; //Dead
+
+
+    c = y + 2;
+    z = c * 2;
+    return z;
+}
+
+or int a(int b) {
+    int c;
+    c = 1; // Dead
+    c = b + 2;
+    return c;
+}
+
+In this case, since all variables are assumed to be local in scope, any definitions or statements that are contributing to the returned value are redundant.
+
+(How they affect control flow remains to be decided)
+
+The algorithm will work recursively, starting with the first declaration/statement in the function:
+To decide whether a statement is dead or not, a function kill() will be ran on it
+
+each following statement will contain a list of KILLED and LIVE, KILLED contains statements which are re-defined before being used, LIVE contains variables which are used, and have had the recursive function ran on themselves and their effects reached a return or some control flow
+
+
+example:
+
+
+int a;
+
+if(a == 1) {stmts} // this will mark a as live, also any live/dead lists inside of the loop will be appended to the statements live/dead lists
+with a slight caveat, since control flow is conditional, dead lists will only be appended if the element is in both the if/else stmts or for 'for' and 'while' statements,
+since they may not run at all they cannot kill (but they can live)
+
+return statements automatically live any associated variables and kill nothing
+
+
+Code architecture additions:
+
+
+Functions.cpp will have a new function: DCE(), which will run the optimization pass on the function
+
+this will be run on all functions prior to compile time
+
+Statements will have a function get_live_lists() which returns a list of all variables who's declaration is still necessary
+all variables not on the list are removed from the stack_variables vector
+-- This may not be implemented immediately since it will add less performance and be a slightly out of scope thing
+
+statements will --have a bool property dead (unnecessary)--, which is auto initialized to false,
+and a function remove_dead() which will start at the end of the function, marking everything dead until it hits the return function:
+at the return function it will add all variables in its right side (the whole statement) to the live list, then,
+for each subsequent statement, if the l-val is in the live list, add its r-values to the live list (and move the l-variable to the dead list unless it was in the r-variables)
+repeat for each statement
+if the l-val is in the dead list (not in the live list), mark the statement dead, then remove it
+
+Also, function calls are assumed to have side effects so they live their 
+
+
+Each statement has a bool RemoveDead():
+statement blocks run RemoveDead() iteratively from the end to the beginning on all of their contained statements;
+if a statement returns TRUE, that means it is to be removed from the statement block. 
+Dead statements inside other statement types (like an expression in the if statement) are to be ignored, those calls are only used to modify the live list
+
+when RemoveDead is called on an expression, it adds any variables in that expression to the live list
